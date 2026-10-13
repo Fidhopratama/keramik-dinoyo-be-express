@@ -1,6 +1,16 @@
+
+import type { Request, Response } from 'express'
+
 const { AiAnalysisResult, User } = require('../models')
 
-async function getAiAnalysisResults(req, res) {
+interface AnalysisResultParams {
+  id: string
+}
+
+export async function getAiAnalysisResults(
+  _req: Request,
+  res: Response,
+): Promise<Response> {
   try {
     const results = await AiAnalysisResult.findAll({
       include: [
@@ -17,7 +27,7 @@ async function getAiAnalysisResults(req, res) {
       success: true,
       data: results,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get AI analysis results error:', error)
 
     return res.status(500).json({
@@ -27,7 +37,10 @@ async function getAiAnalysisResults(req, res) {
   }
 }
 
-async function getAiAnalysisResultById(req, res) {
+export async function getAiAnalysisResultById(
+  req: Request<AnalysisResultParams>,
+  res: Response,
+): Promise<Response> {
   try {
     const result = await AiAnalysisResult.findByPk(
       req.params.id,
@@ -53,7 +66,7 @@ async function getAiAnalysisResultById(req, res) {
       success: true,
       data: result,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(
       'Get AI analysis result detail error:',
       error,

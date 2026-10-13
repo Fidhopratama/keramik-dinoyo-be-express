@@ -1,6 +1,10 @@
-const { AuditLog, User } = require('../models')
+import type { Request, Response } from 'express'
 
-async function getAuditLogs(req, res) {
+const { AuditLog, User } = require('../models')
+export async function getAuditLogs(
+  req: Request,
+  res: Response
+): Promise<Response> {
   try {
     const logs = await AuditLog.findAll({
       include: [
@@ -17,7 +21,7 @@ async function getAuditLogs(req, res) {
       success: true,
       data: logs,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get audit logs error:', error)
 
     return res.status(500).json({
@@ -27,7 +31,10 @@ async function getAuditLogs(req, res) {
   }
 }
 
-async function getAuditLogById(req, res) {
+export async function getAuditLogById(
+  req: Request,
+  res: Response
+): Promise<Response> {
   try {
     const log = await AuditLog.findByPk(req.params.id, {
       include: [
@@ -50,7 +57,7 @@ async function getAuditLogById(req, res) {
       success: true,
       data: log,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get audit log detail error:', error)
 
     return res.status(500).json({
@@ -58,9 +65,4 @@ async function getAuditLogById(req, res) {
       message: 'Gagal mengambil detail audit log.',
     })
   }
-}
-
-module.exports = {
-  getAuditLogs,
-  getAuditLogById,
 }

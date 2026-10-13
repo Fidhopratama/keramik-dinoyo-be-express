@@ -1,6 +1,22 @@
+
+import type { Request, Response } from 'express'
+
 const { Category } = require('../models')
 
-async function getCategories(req, res) {
+interface CategoryBody {
+  name?: string
+  description?: string | null
+  is_active?: boolean | string
+}
+
+interface CategoryParams {
+  id: string
+}
+
+export async function getCategories(
+  _req: Request,
+  res: Response
+): Promise<Response> {
   try {
     const categories = await Category.findAll({
       where: {
@@ -13,7 +29,7 @@ async function getCategories(req, res) {
       success: true,
       data: categories,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get categories error:', error)
 
     return res.status(500).json({
@@ -23,7 +39,10 @@ async function getCategories(req, res) {
   }
 }
 
-async function getCategoryById(req, res) {
+export async function getCategoryById(
+  req: Request<CategoryParams>,
+  res: Response
+): Promise<Response> {
   try {
     const category = await Category.findByPk(req.params.id)
 
@@ -38,7 +57,7 @@ async function getCategoryById(req, res) {
       success: true,
       data: category,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get category detail error:', error)
 
     return res.status(500).json({
@@ -48,24 +67,25 @@ async function getCategoryById(req, res) {
   }
 }
 
-async function createCategory(req, res) {
+export async function createCategory(
+  req: Request<{}, {}, CategoryBody>,
+  res: Response
+): Promise<Response> {
   try {
-    const {
-      name,
-      description,
-      is_active,
-    } = req.body
+    const { name, description, is_active } = req.body
 
-    if (!name || !name.trim()) {
+    if (typeof name !== 'string' || !name.trim()) {
       return res.status(422).json({
         success: false,
         message: 'Nama kategori wajib diisi.',
       })
     }
 
+    const trimmedName = name.trim()
+
     const existingCategory = await Category.findOne({
       where: {
-        name: name.trim(),
+        name: trimmedName,
       },
     })
 
@@ -77,7 +97,7 @@ async function createCategory(req, res) {
     }
 
     const category = await Category.create({
-      name: name.trim(),
+      name: trimmedName,
       description: description || null,
       is_active:
         is_active !== undefined
@@ -90,7 +110,7 @@ async function createCategory(req, res) {
       message: 'Kategori berhasil dibuat.',
       data: category,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Create category error:', error)
 
     return res.status(500).json({
@@ -100,7 +120,10 @@ async function createCategory(req, res) {
   }
 }
 
-async function updateCategory(req, res) {
+export async function updateCategory(
+  req: Request<CategoryParams, {}, CategoryBody>,
+  res: Response
+): Promise<Response> {
   try {
     const category = await Category.findByPk(req.params.id)
 
@@ -111,23 +134,21 @@ async function updateCategory(req, res) {
       })
     }
 
-    const {
-      name,
-      description,
-      is_active,
-    } = req.body
+    const { name, description, is_active } = req.body
 
     if (name !== undefined) {
-      if (!name.trim()) {
+      if (typeof name !== 'string' || !name.trim()) {
         return res.status(422).json({
           success: false,
           message: 'Nama kategori tidak boleh kosong.',
         })
       }
 
+      const trimmedName = name.trim()
+
       const existingCategory = await Category.findOne({
         where: {
-          name: name.trim(),
+          name: trimmedName,
         },
       })
 
@@ -141,7 +162,7 @@ async function updateCategory(req, res) {
         })
       }
 
-      category.name = name.trim()
+      category.name = trimmedName
     }
 
     if (description !== undefined) {
@@ -149,7 +170,10 @@ async function updateCategory(req, res) {
     }
 
     if (is_active !== undefined) {
-      category.is_active = Boolean(is_active)
+      category.is_active =
+        typeof is_active === 'string'
+          ? is_active === 'true'
+          : Boolean(is_active)
     }
 
     await category.save()
@@ -159,7 +183,7 @@ async function updateCategory(req, res) {
       message: 'Kategori berhasil diperbarui.',
       data: category,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Update category error:', error)
 
     return res.status(500).json({
@@ -169,7 +193,10 @@ async function updateCategory(req, res) {
   }
 }
 
-async function deleteCategory(req, res) {
+export async function deleteCategory(
+  req: Request<CategoryParams>,
+  res: Response
+): Promise<Response> {
   try {
     const category = await Category.findByPk(req.params.id)
 
@@ -186,7 +213,7 @@ async function deleteCategory(req, res) {
       success: true,
       message: 'Kategori berhasil dihapus.',
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Delete category error:', error)
 
     return res.status(500).json({
@@ -194,12 +221,4 @@ async function deleteCategory(req, res) {
       message: 'Gagal menghapus kategori.',
     })
   }
-}
-
-module.exports = {
-  getCategories,
-  getCategoryById,
-  createCategory,
-  updateCategory,
-  deleteCategory,
 }

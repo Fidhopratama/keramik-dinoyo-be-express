@@ -1,6 +1,44 @@
+
+import type { Request, Response } from 'express'
+
 const { Review, User, Product } = require('../models')
 
-async function getReviews(req, res) {
+interface ReviewParams {
+  id: string
+}
+
+interface ReviewBody {
+  product_id?: number | string
+  rating?: number | string
+  comment?: string | null
+  is_active?: boolean
+}
+
+interface AuthenticatedUser {
+  userId: number
+  role?: string
+}
+
+interface AuthenticatedRequest<
+  P = Record<string, never>,
+  B = unknown,
+> extends Request<P, unknown, B> {
+  user: AuthenticatedUser
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return 'Terjadi kesalahan database.'
+}
+
+// GET /api/reviews
+export async function getReviews(
+  _req: Request,
+  res: Response
+): Promise<Response> {
   try {
     const reviews = await Review.findAll({
       where: {
@@ -25,17 +63,22 @@ async function getReviews(req, res) {
       success: true,
       data: reviews,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get reviews error:', error)
 
     return res.status(500).json({
       success: false,
       message: 'Gagal mengambil data ulasan.',
+      error: getErrorMessage(error),
     })
   }
 }
 
-async function getReviewById(req, res) {
+// GET /api/reviews/:id
+export async function getReviewById(
+  req: Request<ReviewParams>,
+  res: Response
+): Promise<Response> {
   try {
     const review = await Review.findByPk(req.params.id, {
       include: [
@@ -63,25 +106,26 @@ async function getReviewById(req, res) {
       success: true,
       data: review,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get review detail error:', error)
 
     return res.status(500).json({
       success: false,
       message: 'Gagal mengambil detail ulasan.',
+      error: getErrorMessage(error),
     })
   }
 }
 
-async function createReview(req, res) {
+// POST /api/reviews
+export async function createReview(
+  req: AuthenticatedRequest<Record<string, never>, ReviewBody>,
+  res: Response
+): Promise<Response> {
   try {
-    const {
-      product_id,
-      rating,
-      comment,
-    } = req.body
+    const { product_id, rating, comment } = req.body
 
-    if (!product_id || rating === undefined) {
+    if (!product_id || rating === undefined || rating === null || rating === '') {
       return res.status(422).json({
         success: false,
         message: 'product_id dan rating wajib diisi.',
@@ -102,7 +146,6 @@ async function createReview(req, res) {
     }
 
     const userId = req.user.userId
-
     const user = await User.findByPk(userId)
 
     if (!user) {
@@ -129,45 +172,42 @@ async function createReview(req, res) {
       is_active: true,
     })
 
-    const createdReview = await Review.findByPk(
-      review.id,
-      {
-        include: [
-          {
-            model: User,
-            as: 'user',
-            attributes: ['id', 'name'],
-          },
-          {
-            model: Product,
-            as: 'product',
-            attributes: [
-              'id',
-              'name',
-              'slug',
-              'image',
-            ],
-          },
-        ],
-      },
-    )
+    const createdReview = await Review.findByPk(review.id, {
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'name'],
+        },
+        {
+          model: Product,
+          as: 'product',
+          attributes: ['id', 'name', 'slug', 'image'],
+        },
+      ],
+    })
 
     return res.status(201).json({
       success: true,
       message: 'Ulasan berhasil dibuat.',
       data: createdReview,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Create review error:', error)
 
     return res.status(500).json({
       success: false,
       message: 'Gagal membuat ulasan.',
+      error: getErrorMessage(error),
     })
   }
 }
 
-async function updateReview(req, res) {
+// PUT /api/reviews/:id
+export async function updateReview(
+  req: AuthenticatedRequest<ReviewParams, ReviewBody>,
+  res: Response
+): Promise<Response> {
   try {
     const review = await Review.findByPk(req.params.id)
 
@@ -179,7 +219,7 @@ async function updateReview(req, res) {
     }
 
     const isAdmin = req.user.role === 'admin'
-    const isOwner = review.user_id === req.user.userId
+    const isOwner = Number(review.user_id) === Number(req.user.userId)
 
     if (!isAdmin && !isOwner) {
       return res.status(403).json({
@@ -188,11 +228,7 @@ async function updateReview(req, res) {
       })
     }
 
-    const {
-      rating,
-      comment,
-      is_active,
-    } = req.body
+    const { rating, comment, is_active } = req.body
 
     if (rating !== undefined) {
       const numericRating = Number(rating)
@@ -216,10 +252,7 @@ async function updateReview(req, res) {
     }
 
     // Hanya admin yang boleh mengubah status aktif/nonaktif.
-    if (
-      is_active !== undefined &&
-      isAdmin
-    ) {
+    if (is_active !== undefined && isAdmin) {
       review.is_active = is_active
     }
 
@@ -230,17 +263,22 @@ async function updateReview(req, res) {
       message: 'Ulasan berhasil diperbarui.',
       data: review,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Update review error:', error)
 
     return res.status(500).json({
       success: false,
       message: 'Gagal memperbarui ulasan.',
+      error: getErrorMessage(error),
     })
   }
 }
 
-async function deleteReview(req, res) {
+// DELETE /api/reviews/:id
+export async function deleteReview(
+  req: AuthenticatedRequest<ReviewParams>,
+  res: Response
+): Promise<Response> {
   try {
     const review = await Review.findByPk(req.params.id)
 
@@ -252,7 +290,7 @@ async function deleteReview(req, res) {
     }
 
     const isAdmin = req.user.role === 'admin'
-    const isOwner = review.user_id === req.user.userId
+    const isOwner = Number(review.user_id) === Number(req.user.userId)
 
     if (!isAdmin && !isOwner) {
       return res.status(403).json({
@@ -267,20 +305,13 @@ async function deleteReview(req, res) {
       success: true,
       message: 'Ulasan berhasil dihapus.',
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Delete review error:', error)
 
     return res.status(500).json({
       success: false,
       message: 'Gagal menghapus ulasan.',
+      error: getErrorMessage(error),
     })
   }
-}
-
-module.exports = {
-  getReviews,
-  getReviewById,
-  createReview,
-  updateReview,
-  deleteReview,
 }

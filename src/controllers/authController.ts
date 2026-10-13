@@ -1,8 +1,25 @@
+import type { Request, Response } from 'express'
+
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const { User, Role } = require('../models')
+interface AuthenticatedRequest extends Request {
+  user: {
+    userId: number
+    roleId?: number
+    role?: string | null
+  }
+}
 
-async function login(req, res) {
+interface LoginBody {
+  email?: string
+  password?: string
+}
+
+export async function login(
+  req: Request<{}, {}, LoginBody>,
+  res: Response
+): Promise<Response> {
   try {
     const { email, password } = req.body
 
@@ -38,9 +55,9 @@ async function login(req, res) {
       })
     }
 
-    const passwordValid = await bcrypt.compare(
+    const passwordValid: boolean = await bcrypt.compare(
       password,
-      user.password,
+      user.password
     )
 
     if (!passwordValid) {
@@ -50,16 +67,27 @@ async function login(req, res) {
       })
     }
 
+    const jwtSecret = process.env.JWT_SECRET
+
+    if (!jwtSecret) {
+      console.error('JWT_SECRET belum dikonfigurasi.')
+
+      return res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan pada server.',
+      })
+    }
+
     const token = jwt.sign(
       {
         userId: user.id,
         roleId: user.role_id,
-        role: user.role?.name || null,
+        role: user.role?.name ?? null,
       },
-      process.env.JWT_SECRET,
+      jwtSecret,
       {
         expiresIn: '7d',
-      },
+      } 
     )
 
     return res.json({
@@ -83,7 +111,7 @@ async function login(req, res) {
         },
       },
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Login error:', error)
 
     return res.status(500).json({
@@ -93,7 +121,10 @@ async function login(req, res) {
   }
 }
 
-async function me(req, res) {
+export async function me(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<Response> {
   try {
     const user = await User.findByPk(req.user.userId, {
       attributes: [
@@ -132,7 +163,7 @@ async function me(req, res) {
         user,
       },
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Me error:', error)
 
     return res.status(500).json({
@@ -142,15 +173,12 @@ async function me(req, res) {
   }
 }
 
-async function logout(req, res) {
+export async function logout(
+  _req: Request,
+  res: Response
+): Promise<Response> {
   return res.json({
     success: true,
     message: 'Logout berhasil.',
   })
-}
-
-module.exports = {
-  login,
-  me,
-  logout,
 }

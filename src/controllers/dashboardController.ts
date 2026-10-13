@@ -1,3 +1,6 @@
+
+import type { Request, Response } from 'express'
+
 const {
   User,
   Shop,
@@ -7,7 +10,10 @@ const {
   Review,
 } = require('../models')
 
-async function getDashboard(req, res) {
+export async function getDashboard(
+  _req: Request,
+  res: Response
+): Promise<Response> {
   try {
     const [
       totalUsers,
@@ -83,7 +89,7 @@ async function getDashboard(req, res) {
         },
       },
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get dashboard error:', error)
 
     return res.status(500).json({
@@ -91,8 +97,4 @@ async function getDashboard(req, res) {
       message: 'Gagal mengambil data dashboard.',
     })
   }
-}
-
-module.exports = {
-  getDashboard,
 }

@@ -1,8 +1,9 @@
-require('dotenv').config()
+
+import 'dotenv/config'
 
 const sequelize = require('../src/config/database')
 
-async function testAiAnalysisResults() {
+async function testAiAnalysisResults(): Promise<void> {
   try {
     await sequelize.authenticate()
 
@@ -11,10 +12,13 @@ async function testAiAnalysisResults() {
     )
 
     console.table(results)
-  } catch (error) {
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : String(error)
+
     console.error(
       'Gagal membaca tabel ai_analysis_results:',
-      error.message,
+      message,
     )
   } finally {
     await sequelize.close()

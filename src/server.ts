@@ -1,10 +1,13 @@
+
+import 'dotenv/config'
+
 const app = require('./app')
 const sequelize = require('./config/database')
 const { Role, User } = require('./models')
 
 const PORT = process.env.PORT || 5050
 
-async function startServer() {
+async function startServer(): Promise<void> {
   try {
     await sequelize.authenticate()
 
@@ -15,7 +18,10 @@ async function startServer() {
       order: [['id', 'ASC']],
     })
 
-    console.log('Roles:', roles.map((role) => role.toJSON()))
+    console.log(
+      'Roles:',
+      roles.map((role: { toJSON: () => unknown }) => role.toJSON()),
+    )
 
     const users = await User.findAll({
       attributes: ['id', 'name', 'email', 'role_id'],
@@ -31,7 +37,7 @@ async function startServer() {
 
     console.log(
       'Users:',
-      users.map((user) => user.toJSON()),
+      users.map((user: { toJSON: () => unknown }) => user.toJSON()),
     )
 
     app.listen(PORT, '0.0.0.0', () => {
@@ -39,10 +45,13 @@ async function startServer() {
         `Keramik Dinoyo API berjalan di http://localhost:${PORT}`,
       )
     })
-  } catch (error) {
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : String(error)
+
     console.error(
       'Gagal menjalankan server:',
-      error.message,
+      message,
     )
 
     process.exit(1)

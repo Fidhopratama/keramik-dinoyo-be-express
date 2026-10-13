@@ -1,7 +1,10 @@
-const express = require('express')
-const multer = require('multer')
-const path = require('path')
-const fs = require('fs')
+import express from 'express'
+import multer from 'multer'
+import type { Request } from 'express'
+import type { FileFilterCallback } from 'multer'
+import type { StorageEngine } from 'multer'
+import path from 'path'
+import fs from 'fs'
 
 const {
   getProducts,
@@ -28,19 +31,25 @@ if (!fs.existsSync(uploadDir)) {
   })
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+const storage: StorageEngine = multer.diskStorage({
+  destination: (
+    _req: Request,
+    _file: Express.Multer.File,
+    cb: (error: Error | null, destination: string) => void,
+  ) => {
     cb(null, uploadDir)
   },
 
-  filename: (req, file, cb) => {
-    const ext = path.extname(
-      file.originalname,
-    )
+  filename: (
+    _req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, filename: string) => void,
+  ) => {
+    const ext = path.extname(file.originalname)
 
     const safeName = path
       .basename(file.originalname, ext)
-      .replace(/[^a-zA-Z0-9-_]/g, '-')
+      .replace(/[^a-zA-Z0-9_-]/g, '-')
       .toLowerCase()
 
     cb(
@@ -57,18 +66,18 @@ const upload = multer({
     fileSize: 2 * 1024 * 1024,
   },
 
-  fileFilter: (req, file, cb) => {
+  fileFilter: (
+    _req: Request,
+    file: Express.Multer.File,
+    cb: FileFilterCallback,
+  ) => {
     const allowedTypes = [
       'image/jpeg',
       'image/png',
       'image/webp',
     ]
 
-    if (
-      !allowedTypes.includes(
-        file.mimetype,
-      )
-    ) {
+    if (!allowedTypes.includes(file.mimetype)) {
       return cb(
         new Error(
           'Format gambar harus JPG, PNG, atau WEBP.',
@@ -81,15 +90,8 @@ const upload = multer({
 })
 
 // Public
-router.get(
-  '/products',
-  getProducts,
-)
-
-router.get(
-  '/products/:id',
-  getProductById,
-)
+router.get('/products', getProducts)
+router.get('/products/:id', getProductById)
 
 // Admin only
 router.post(

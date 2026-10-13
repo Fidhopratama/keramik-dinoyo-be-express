@@ -1,8 +1,51 @@
+
+import type { Request, Response } from 'express'
+
 const fs = require('fs')
 const path = require('path')
 const { Workshop } = require('../models')
 
-function deleteUploadedFile(imagePath) {
+interface WorkshopParams {
+  id: string
+}
+
+interface WorkshopBody {
+  title?: string
+  description?: string | null
+  instructor?: string | null
+  date?: string
+  start_time?: string
+  end_time?: string
+  capacity?: number | string
+  location?: string | null
+  status?: string
+}
+
+interface UploadedFile {
+  filename: string
+}
+
+type WorkshopRequest<
+  P = Record<string, never>,
+  B = unknown,
+> = Request<P, unknown, B> & {
+  file?: UploadedFile
+}
+
+interface WorkshopUpdateData {
+  title?: string
+  description?: string | null
+  instructor?: string | null
+  date?: string
+  start_time?: string
+  end_time?: string
+  capacity?: number
+  location?: string | null
+  status?: string
+  image?: string | null
+}
+
+function deleteUploadedFile(imagePath?: string | null): void {
   if (!imagePath) return
 
   const normalized = imagePath.replace(/^\/+/, '')
@@ -17,18 +60,31 @@ function deleteUploadedFile(imagePath) {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath)
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Delete workshop image error:', error)
   }
 }
 
-function getImagePath(req) {
+function getImagePath(
+  req: WorkshopRequest,
+): string | null {
   if (!req.file) return null
 
   return `/uploads/workshops/${req.file.filename}`
 }
 
-async function getWorkshops(req, res) {
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return 'Terjadi kesalahan.'
+}
+
+export async function getWorkshops(
+  _req: Request,
+  res: Response,
+): Promise<Response> {
   try {
     const workshops = await Workshop.findAll({
       order: [['id', 'ASC']],
@@ -38,7 +94,7 @@ async function getWorkshops(req, res) {
       success: true,
       data: workshops,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get workshops error:', error)
 
     return res.status(500).json({
@@ -48,7 +104,10 @@ async function getWorkshops(req, res) {
   }
 }
 
-async function getWorkshopById(req, res) {
+export async function getWorkshopById(
+  req: Request<WorkshopParams>,
+  res: Response,
+): Promise<Response> {
   try {
     const workshop = await Workshop.findByPk(req.params.id)
 
@@ -63,7 +122,7 @@ async function getWorkshopById(req, res) {
       success: true,
       data: workshop,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get workshop detail error:', error)
 
     return res.status(500).json({
@@ -73,7 +132,10 @@ async function getWorkshopById(req, res) {
   }
 }
 
-async function createWorkshop(req, res) {
+export async function createWorkshop(
+  req: WorkshopRequest<Record<string, never>, WorkshopBody>,
+  res: Response,
+): Promise<Response> {
   try {
     const {
       title,
@@ -143,7 +205,7 @@ async function createWorkshop(req, res) {
       message: 'Workshop berhasil dibuat.',
       data: workshop,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     if (req.file) {
       deleteUploadedFile(
         `/uploads/workshops/${req.file.filename}`,
@@ -157,13 +219,16 @@ async function createWorkshop(req, res) {
       message: 'Gagal membuat workshop.',
       error:
         process.env.NODE_ENV === 'development'
-          ? error.message
+          ? getErrorMessage(error)
           : undefined,
     })
   }
 }
 
-async function updateWorkshop(req, res) {
+export async function updateWorkshop(
+  req: WorkshopRequest<WorkshopParams, WorkshopBody>,
+  res: Response,
+): Promise<Response> {
   try {
     const workshop = await Workshop.findByPk(req.params.id)
 
@@ -192,7 +257,7 @@ async function updateWorkshop(req, res) {
       status,
     } = req.body
 
-    const updateData = {}
+    const updateData: WorkshopUpdateData = {}
 
     if (title !== undefined) {
       updateData.title = title
@@ -267,7 +332,7 @@ async function updateWorkshop(req, res) {
       message: 'Workshop berhasil diperbarui.',
       data: workshop,
     })
-  } catch (error) {
+  } catch (error: unknown) {
     if (req.file) {
       deleteUploadedFile(
         `/uploads/workshops/${req.file.filename}`,
@@ -281,13 +346,16 @@ async function updateWorkshop(req, res) {
       message: 'Gagal memperbarui workshop.',
       error:
         process.env.NODE_ENV === 'development'
-          ? error.message
+          ? getErrorMessage(error)
           : undefined,
     })
   }
 }
 
-async function deleteWorkshop(req, res) {
+export async function deleteWorkshop(
+  req: Request<WorkshopParams>,
+  res: Response,
+): Promise<Response> {
   try {
     const workshop = await Workshop.findByPk(req.params.id)
 
@@ -310,7 +378,7 @@ async function deleteWorkshop(req, res) {
       success: true,
       message: 'Workshop berhasil dihapus.',
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Delete workshop error:', error)
 
     return res.status(500).json({

@@ -1,7 +1,8 @@
-const express = require('express')
-const cors = require('cors')
-const dotenv = require('dotenv')
-const path = require('path')
+
+import express from 'express'
+import cors from 'cors'
+import dotenv from 'dotenv'
+import path from 'path'
 
 dotenv.config()
 
@@ -35,7 +36,7 @@ app.use(
   ),
 )
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({
     success: true,
     message: 'Keramik Dinoyo API berjalan.',

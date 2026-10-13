@@ -1,10 +1,10 @@
-require('dotenv').config()
+import 'dotenv/config'
 
 const bcrypt = require('bcrypt')
 const sequelize = require('../src/config/database')
 const { User } = require('../src/models')
 
-async function resetAdminPassword() {
+async function resetAdminPassword(): Promise<void> {
   try {
     await sequelize.authenticate()
 
@@ -34,10 +34,13 @@ async function resetAdminPassword() {
     console.log('Password admin berhasil di-reset.')
     console.log('Email: admin@keramikdinoyo.test')
     console.log('Password: password')
-  } catch (error) {
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : String(error)
+
     console.error(
       'Gagal reset password:',
-      error.message,
+      message,
     )
   } finally {
     await sequelize.close()

@@ -1,9 +1,15 @@
 const axios = require('axios')
+import type { AxiosError } from 'axios'
+
+interface AnalyzeCeramicPreferenceParams {
+  userId?: number | null
+  preferences: Record<string, unknown>
+}
 
 async function analyzeCeramicPreference({
   userId = null,
   preferences,
-}) {
+}: AnalyzeCeramicPreferenceParams): Promise<unknown> {
   try {
     const aiServiceUrl =
       process.env.AI_SERVICE_URL ||
@@ -21,10 +27,16 @@ async function analyzeCeramicPreference({
     )
 
     return response.data
-  } catch (error) {
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError
+
+    const errorDetails =
+      axiosError.response?.data ??
+      (error instanceof Error ? error.message : String(error))
+
     console.error(
       'AI service error:',
-      error.response?.data || error.message,
+      errorDetails,
     )
 
     throw new Error(
