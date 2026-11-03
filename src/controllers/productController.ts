@@ -1,6 +1,8 @@
 
 import type { Request, Response } from 'express'
 import { Op, type WhereOptions } from 'sequelize'
+import { removeUploadedImage } from '../middleware/imageUpload'
+import { parseProductPrice } from '../utils/validation'
 
 const { Product, Shop, Category } = require('../models')
 
@@ -44,7 +46,7 @@ interface ProductUpdateData {
   name: string
   slug: string
   description: string | null
-  price: number | string
+  price: number
   stock: number | string
   status: string
   image?: string | null
@@ -206,6 +208,20 @@ export const createProduct = async (
       })
     }
 
+    const parsedPrice = parseProductPrice(price)
+
+    if (parsedPrice === null) {
+      if (req.file) {
+        removeUploadedImage('products', req.file.filename)
+      }
+
+      return res.status(422).json({
+        success: false,
+        message:
+          'Format harga tidak valid. Gunakan angka, misalnya 15000 atau Rp 15.000.',
+      })
+    }
+
     const shop = await Shop.findByPk(shop_id)
 
     if (!shop) {
@@ -246,7 +262,7 @@ export const createProduct = async (
       name,
       slug: finalSlug,
       description: description || null,
-      price,
+      price: parsedPrice,
       stock: stock !== undefined && stock !== '' ? stock : 0,
       image,
       status: status || 'active',
@@ -323,6 +339,20 @@ export const updateProduct = async (
       })
     }
 
+    const parsedPrice = parseProductPrice(price)
+
+    if (parsedPrice === null) {
+      if (req.file) {
+        removeUploadedImage('products', req.file.filename)
+      }
+
+      return res.status(422).json({
+        success: false,
+        message:
+          'Format harga tidak valid. Gunakan angka, misalnya 15000 atau Rp 15.000.',
+      })
+    }
+
     const shop = await Shop.findByPk(shop_id)
 
     if (!shop) {
@@ -361,7 +391,7 @@ export const updateProduct = async (
       name,
       slug: finalSlug,
       description: description || null,
-      price,
+      price: parsedPrice,
       stock: stock !== undefined && stock !== '' ? stock : 0,
       status: status || 'active',
     }

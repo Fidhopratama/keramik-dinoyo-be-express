@@ -3,6 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import path from 'path'
+import { imageUploadErrorHandler } from './middleware/imageUpload'
 
 dotenv.config()
 
@@ -53,5 +54,7 @@ app.use('/api', aiAnalysisRoutes)
 app.use('/api', auditLogRoutes)
 app.use('/api', dashboardRoutes)
 app.use('/api', categoryRoutes)
+
+app.use(imageUploadErrorHandler)
 
 module.exports = app

@@ -1,5 +1,10 @@
 
 import type { Request, Response } from 'express'
+import { removeUploadedImage } from '../middleware/imageUpload'
+import {
+  isDetailedAddress,
+  isValidIndonesianMobileNumber,
+} from '../utils/validation'
 
 const { Shop } = require('../models')
 
@@ -129,6 +134,50 @@ export async function createShop(
       })
     }
 
+    const normalizedWhatsApp =
+      typeof whatsapp === 'string' && whatsapp.trim()
+        ? whatsapp.trim()
+        : null
+    const normalizedAddress =
+      typeof address === 'string' && address.trim()
+        ? address.trim()
+        : null
+
+    if (
+      whatsapp !== undefined &&
+      whatsapp !== null &&
+      (typeof whatsapp !== 'string' ||
+        (whatsapp.trim() !== '' &&
+          !isValidIndonesianMobileNumber(normalizedWhatsApp)))
+    ) {
+      if (req.file) {
+        removeUploadedImage('shops', req.file.filename)
+      }
+
+      return res.status(422).json({
+        success: false,
+        message:
+          'Nomor WhatsApp tidak valid. Gunakan nomor HP Indonesia, misalnya 081234567890 atau +6281234567890.',
+      })
+    }
+
+    if (
+      address !== undefined &&
+      address !== null &&
+      (typeof address !== 'string' ||
+        (address.trim() !== '' && !isDetailedAddress(normalizedAddress)))
+    ) {
+      if (req.file) {
+        removeUploadedImage('shops', req.file.filename)
+      }
+
+      return res.status(422).json({
+        success: false,
+        message:
+          'Alamat toko harus lebih detail (minimal 15 karakter dan 3 kata, sertakan nama jalan serta detail lokasi).',
+      })
+    }
+
     const image = req.file
       ? `/uploads/shops/${req.file.filename}`
       : null
@@ -139,8 +188,8 @@ export async function createShop(
       image,
       instagram: instagram || null,
       tiktok: tiktok || null,
-      whatsapp: whatsapp || null,
-      address: address || null,
+      whatsapp: normalizedWhatsApp,
+      address: normalizedAddress,
       is_active:
         is_active === undefined
           ? true
@@ -190,6 +239,50 @@ export async function updateShop(
 
     const updateData: ShopUpdateData = {}
 
+    const normalizedWhatsApp =
+      typeof whatsapp === 'string' && whatsapp.trim()
+        ? whatsapp.trim()
+        : null
+    const normalizedAddress =
+      typeof address === 'string' && address.trim()
+        ? address.trim()
+        : null
+
+    if (
+      whatsapp !== undefined &&
+      whatsapp !== null &&
+      (typeof whatsapp !== 'string' ||
+        (whatsapp.trim() !== '' &&
+          !isValidIndonesianMobileNumber(normalizedWhatsApp)))
+    ) {
+      if (req.file) {
+        removeUploadedImage('shops', req.file.filename)
+      }
+
+      return res.status(422).json({
+        success: false,
+        message:
+          'Nomor WhatsApp tidak valid. Gunakan nomor HP Indonesia, misalnya 081234567890 atau +6281234567890.',
+      })
+    }
+
+    if (
+      address !== undefined &&
+      address !== null &&
+      (typeof address !== 'string' ||
+        (address.trim() !== '' && !isDetailedAddress(normalizedAddress)))
+    ) {
+      if (req.file) {
+        removeUploadedImage('shops', req.file.filename)
+      }
+
+      return res.status(422).json({
+        success: false,
+        message:
+          'Alamat toko harus lebih detail (minimal 15 karakter dan 3 kata, sertakan nama jalan serta detail lokasi).',
+      })
+    }
+
     if (name !== undefined) {
       if (typeof name !== 'string' || !name.trim()) {
         return res.status(422).json({
@@ -214,11 +307,11 @@ export async function updateShop(
     }
 
     if (whatsapp !== undefined) {
-      updateData.whatsapp = whatsapp
+      updateData.whatsapp = normalizedWhatsApp
     }
 
     if (address !== undefined) {
-      updateData.address = address
+      updateData.address = normalizedAddress
     }
 
     if (is_active !== undefined) {

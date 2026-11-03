@@ -4,6 +4,8 @@ import type { Request, Response } from 'express'
 const fs = require('fs')
 const path = require('path')
 const { Workshop } = require('../models')
+import { removeUploadedImage } from '../middleware/imageUpload'
+import { isDetailedAddress } from '../utils/validation'
 
 interface WorkshopParams {
   id: string
@@ -163,6 +165,23 @@ export async function createWorkshop(
       })
     }
 
+    if (
+      location !== undefined &&
+      location !== null &&
+      location !== '' &&
+      !isDetailedAddress(location)
+    ) {
+      if (req.file) {
+        removeUploadedImage('workshops', req.file.filename)
+      }
+
+      return res.status(422).json({
+        success: false,
+        message:
+          'Lokasi workshop harus lebih detail (minimal 15 karakter dan 3 kata, sertakan nama jalan serta detail lokasi).',
+      })
+    }
+
     const parsedCapacity =
       capacity === undefined || capacity === ''
         ? 20
@@ -195,7 +214,10 @@ export async function createWorkshop(
       start_time,
       end_time,
       capacity: parsedCapacity,
-      location: location || null,
+      location:
+        typeof location === 'string' && location.trim()
+          ? location.trim()
+          : null,
       image,
       status: status || 'upcoming',
     })
@@ -307,7 +329,21 @@ export async function updateWorkshop(
     }
 
     if (location !== undefined) {
-      updateData.location = location || null
+      if (location === null || location === '') {
+        updateData.location = null
+      } else if (isDetailedAddress(location)) {
+        updateData.location = location.trim()
+      } else {
+        if (req.file) {
+          removeUploadedImage('workshops', req.file.filename)
+        }
+
+        return res.status(422).json({
+          success: false,
+          message:
+            'Lokasi workshop harus lebih detail (minimal 15 karakter dan 3 kata, sertakan nama jalan serta detail lokasi).',
+        })
+      }
     }
 
     if (status !== undefined) {

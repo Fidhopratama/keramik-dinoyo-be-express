@@ -1,6 +1,7 @@
 
 import type { Request, Response } from 'express'
 import type { Transaction as SequelizeTransaction } from 'sequelize'
+import { isDetailedAddress } from '../utils/validation'
 
 const { Transaction, TransactionItem, Product, User } = require('../models')
 const { sequelize } = require('../config/database')
@@ -166,6 +167,25 @@ export async function createTransaction(
       })
     }
 
+    if (
+      shipping_address !== undefined &&
+      shipping_address !== null &&
+      shipping_address !== '' &&
+      !isDetailedAddress(shipping_address)
+    ) {
+      return res.status(422).json({
+        success: false,
+        message:
+          'Alamat pengiriman harus lebih detail (minimal 15 karakter dan 3 kata).',
+      })
+    }
+
+    const normalizedShippingAddress =
+      typeof shipping_address === 'string' &&
+      shipping_address.trim()
+        ? shipping_address.trim()
+        : null
+
     const dbTransaction: SequelizeTransaction =
       await sequelize.transaction()
 
@@ -269,7 +289,7 @@ export async function createTransaction(
         user_id: transactionUserId,
         transaction_code,
         payment_method: payment_method ?? null,
-        shipping_address: shipping_address ?? null,
+        shipping_address: normalizedShippingAddress,
         notes: notes ?? null,
         total,
         status: 'pending',
@@ -368,7 +388,23 @@ export async function updateTransaction(
     }
 
     if (shipping_address !== undefined) {
-      updateData.shipping_address = shipping_address
+      if (
+        shipping_address !== null &&
+        shipping_address !== '' &&
+        !isDetailedAddress(shipping_address)
+      ) {
+        return res.status(422).json({
+          success: false,
+          message:
+            'Alamat pengiriman harus lebih detail (minimal 15 karakter dan 3 kata).',
+        })
+      }
+
+      updateData.shipping_address =
+        typeof shipping_address === 'string' &&
+        shipping_address.trim()
+          ? shipping_address.trim()
+          : null
     }
 
     if (notes !== undefined) {
