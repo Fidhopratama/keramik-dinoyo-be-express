@@ -3,6 +3,7 @@ import type { Request, Response } from 'express'
 import { Op, type WhereOptions } from 'sequelize'
 import { removeUploadedImage } from '../middleware/imageUpload'
 import { parseProductPrice } from '../utils/validation'
+import { isCloudinaryImageUrl } from '../utils/cloudinaryImage'
 
 const { Product, Shop, Category } = require('../models')
 
@@ -11,6 +12,7 @@ interface UploadedFile {
 }
 
 interface ProductBody {
+  image?: string | null
   shop_id?: number | string
   category_id?: number | string | null
   name?: string
@@ -38,6 +40,9 @@ type ProductRequest<
   Q = Record<string, never>,
 > = Request<P, unknown, B, Q> & {
   file?: UploadedFile
+  user?: {
+    userId: number
+  }
 }
 
 interface ProductUpdateData {
@@ -182,6 +187,21 @@ export const createProduct = async (
   req: ProductRequest<{}, ProductBody>,
   res: Response
 ): Promise<Response> => {
+  const image = req.body?.image
+  if (
+    (image !== undefined && image !== null && !isCloudinaryImageUrl(image)) ||
+    (req.file && image !== undefined)
+  ) {
+    if (req.file) {
+      removeUploadedImage('products', req.file.filename)
+    }
+
+    return res.status(422).json({
+      success: false,
+      message: 'URL gambar Cloudinary tidak valid atau sumber gambar ganda.',
+    })
+  }
+
   try {
     const {
       shop_id,
@@ -254,9 +274,7 @@ export const createProduct = async (
       })
     }
 
-    const image = getProductImagePath(req.file)
-
-    const product = await Product.create({
+    const productData = {
       shop_id,
       category_id: category_id || null,
       name,
@@ -264,9 +282,11 @@ export const createProduct = async (
       description: description || null,
       price: parsedPrice,
       stock: stock !== undefined && stock !== '' ? stock : 0,
-      image,
+      image: req.file ? getProductImagePath(req.file) : image ?? null,
       status: status || 'active',
-    })
+    }
+
+    const product = await Product.create(productData)
 
     const result = await Product.findByPk(product.id, {
       include: [
@@ -304,6 +324,21 @@ export const updateProduct = async (
   req: ProductRequest<ProductParams, ProductBody>,
   res: Response
 ): Promise<Response> => {
+  const image = req.body?.image
+  if (
+    (image !== undefined && image !== null && !isCloudinaryImageUrl(image)) ||
+    (req.file && image !== undefined)
+  ) {
+    if (req.file) {
+      removeUploadedImage('products', req.file.filename)
+    }
+
+    return res.status(422).json({
+      success: false,
+      message: 'URL gambar Cloudinary tidak valid atau sumber gambar ganda.',
+    })
+  }
+
   try {
     const product = await Product.findByPk(req.params.id)
 
@@ -398,6 +433,8 @@ export const updateProduct = async (
 
     if (req.file) {
       updateData.image = getProductImagePath(req.file)
+    } else if (image !== undefined) {
+      updateData.image = image
     }
 
     await product.update(updateData)

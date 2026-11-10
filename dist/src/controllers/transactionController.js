@@ -5,6 +5,7 @@ exports.getTransactionById = getTransactionById;
 exports.createTransaction = createTransaction;
 exports.updateTransaction = updateTransaction;
 exports.deleteTransaction = deleteTransaction;
+const validation_1 = require("../utils/validation");
 const { Transaction, TransactionItem, Product, User } = require('../models');
 const { sequelize } = require('../config/database');
 function getErrorMessage(error) {
@@ -93,6 +94,19 @@ async function createTransaction(req, res) {
                 message: 'Kode transaksi dan item transaksi wajib diisi.',
             });
         }
+        if (shipping_address !== undefined &&
+            shipping_address !== null &&
+            shipping_address !== '' &&
+            !(0, validation_1.isDetailedAddress)(shipping_address)) {
+            return res.status(422).json({
+                success: false,
+                message: 'Alamat pengiriman harus lebih detail (minimal 15 karakter dan 3 kata).',
+            });
+        }
+        const normalizedShippingAddress = typeof shipping_address === 'string' &&
+            shipping_address.trim()
+            ? shipping_address.trim()
+            : null;
         const dbTransaction = await sequelize.transaction();
         transactionDb = dbTransaction;
         const existingTransaction = await Transaction.findOne({
@@ -170,7 +184,7 @@ async function createTransaction(req, res) {
             user_id: transactionUserId,
             transaction_code,
             payment_method: payment_method ?? null,
-            shipping_address: shipping_address ?? null,
+            shipping_address: normalizedShippingAddress,
             notes: notes ?? null,
             total,
             status: 'pending',
@@ -243,7 +257,19 @@ async function updateTransaction(req, res) {
             updateData.payment_method = payment_method;
         }
         if (shipping_address !== undefined) {
-            updateData.shipping_address = shipping_address;
+            if (shipping_address !== null &&
+                shipping_address !== '' &&
+                !(0, validation_1.isDetailedAddress)(shipping_address)) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'Alamat pengiriman harus lebih detail (minimal 15 karakter dan 3 kata).',
+                });
+            }
+            updateData.shipping_address =
+                typeof shipping_address === 'string' &&
+                    shipping_address.trim()
+                    ? shipping_address.trim()
+                    : null;
         }
         if (notes !== undefined) {
             updateData.notes = notes;

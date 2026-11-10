@@ -4,11 +4,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
+const imageUpload_1 = require("./middleware/imageUpload");
+const frontendCors_1 = __importDefault(require("./middleware/frontendCors"));
 dotenv_1.default.config();
 const authRoutes = require('./routes/authRoutes');
+const cloudinaryUploadRoutes = require('./routes/cloudinaryUploadRoutes');
 const shopRoutes = require('./routes/shopRoutes');
 const productRoutes = require('./routes/productRoutes');
 const workshopRoutes = require('./routes/workshopRoutes');
@@ -19,10 +21,7 @@ const auditLogRoutes = require('./routes/auditLogRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const app = (0, express_1.default)();
-app.use((0, cors_1.default)({
-    origin: true,
-    credentials: true,
-}));
+app.use(frontendCors_1.default);
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
@@ -33,6 +32,7 @@ app.get('/api/health', (_req, res) => {
     });
 });
 app.use('/api', authRoutes);
+app.use('/api', cloudinaryUploadRoutes);
 app.use('/api', shopRoutes);
 app.use('/api', productRoutes);
 app.use('/api', workshopRoutes);
@@ -42,4 +42,5 @@ app.use('/api', aiAnalysisRoutes);
 app.use('/api', auditLogRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', categoryRoutes);
+app.use(imageUpload_1.imageUploadErrorHandler);
 module.exports = app;

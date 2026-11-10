@@ -6,12 +6,14 @@ const path = require('path')
 const { Workshop } = require('../models')
 import { removeUploadedImage } from '../middleware/imageUpload'
 import { isDetailedAddress } from '../utils/validation'
+import { isCloudinaryImageUrl } from '../utils/cloudinaryImage'
 
 interface WorkshopParams {
   id: string
 }
 
 interface WorkshopBody {
+  image?: string | null
   title?: string
   description?: string | null
   instructor?: string | null
@@ -32,6 +34,9 @@ type WorkshopRequest<
   B = unknown,
 > = Request<P, unknown, B> & {
   file?: UploadedFile
+  user?: {
+    userId: number
+  }
 }
 
 interface WorkshopUpdateData {
@@ -138,6 +143,21 @@ export async function createWorkshop(
   req: WorkshopRequest<Record<string, never>, WorkshopBody>,
   res: Response,
 ): Promise<Response> {
+  const image = req.body?.image
+  if (
+    (image !== undefined && image !== null && !isCloudinaryImageUrl(image)) ||
+    (req.file && image !== undefined)
+  ) {
+    if (req.file) {
+      removeUploadedImage('workshops', req.file.filename)
+    }
+
+    return res.status(422).json({
+      success: false,
+      message: 'URL gambar Cloudinary tidak valid atau sumber gambar ganda.',
+    })
+  }
+
   try {
     const {
       title,
@@ -204,9 +224,7 @@ export async function createWorkshop(
       })
     }
 
-    const image = getImagePath(req)
-
-    const workshop = await Workshop.create({
+    const workshopData = {
       title,
       description: description || null,
       instructor: instructor || null,
@@ -218,9 +236,11 @@ export async function createWorkshop(
         typeof location === 'string' && location.trim()
           ? location.trim()
           : null,
-      image,
+      image: req.file ? getImagePath(req) : image ?? null,
       status: status || 'upcoming',
-    })
+    }
+
+    const workshop = await Workshop.create(workshopData)
 
     return res.status(201).json({
       success: true,
@@ -251,6 +271,21 @@ export async function updateWorkshop(
   req: WorkshopRequest<WorkshopParams, WorkshopBody>,
   res: Response,
 ): Promise<Response> {
+  const image = req.body?.image
+  if (
+    (image !== undefined && image !== null && !isCloudinaryImageUrl(image)) ||
+    (req.file && image !== undefined)
+  ) {
+    if (req.file) {
+      removeUploadedImage('workshops', req.file.filename)
+    }
+
+    return res.status(422).json({
+      success: false,
+      message: 'URL gambar Cloudinary tidak valid atau sumber gambar ganda.',
+    })
+  }
+
   try {
     const workshop = await Workshop.findByPk(req.params.id)
 
@@ -354,11 +389,9 @@ export async function updateWorkshop(
       const newImage =
         `/uploads/workshops/${req.file.filename}`
 
-      if (workshop.image) {
-        deleteUploadedFile(workshop.image)
-      }
-
       updateData.image = newImage
+    } else if (image !== undefined) {
+      updateData.image = image
     }
 
     await workshop.update(updateData)

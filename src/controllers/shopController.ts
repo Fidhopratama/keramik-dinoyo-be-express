@@ -1,6 +1,8 @@
 
 import type { Request, Response } from 'express'
+import { Op } from 'sequelize'
 import { removeUploadedImage } from '../middleware/imageUpload'
+import { isCloudinaryImageUrl } from '../utils/cloudinaryImage'
 import {
   isDetailedAddress,
   isValidIndonesianMobileNumber,
@@ -13,6 +15,7 @@ interface ShopParams {
 }
 
 interface ShopBody {
+  image?: string | null
   name?: string
   description?: string | null
   instagram?: string | null
@@ -31,6 +34,9 @@ type ShopRequest<
   B = unknown,
 > = Request<P, unknown, B> & {
   file?: UploadedFile
+  user?: {
+    userId: number
+  }
 }
 
 interface ShopUpdateData {
@@ -116,6 +122,21 @@ export async function createShop(
   req: ShopRequest<Record<string, never>, ShopBody>,
   res: Response
 ): Promise<Response> {
+  const image = req.body?.image
+  if (
+    (image !== undefined && image !== null && !isCloudinaryImageUrl(image)) ||
+    (req.file && image !== undefined)
+  ) {
+    if (req.file) {
+      removeUploadedImage('shops', req.file.filename)
+    }
+
+    return res.status(422).json({
+      success: false,
+      message: 'URL gambar Cloudinary tidak valid atau sumber gambar ganda.',
+    })
+  }
+
   try {
     const {
       name,
@@ -178,14 +199,12 @@ export async function createShop(
       })
     }
 
-    const image = req.file
-      ? `/uploads/shops/${req.file.filename}`
-      : null
-
-    const shop = await Shop.create({
+    const shopData = {
       name: name.trim(),
       description: description || null,
-      image,
+      image: req.file
+        ? `/uploads/shops/${req.file.filename}`
+        : image ?? null,
       instagram: instagram || null,
       tiktok: tiktok || null,
       whatsapp: normalizedWhatsApp,
@@ -194,7 +213,9 @@ export async function createShop(
         is_active === undefined
           ? true
           : parseIsActive(is_active),
-    })
+    }
+
+    const shop = await Shop.create(shopData)
 
     return res.status(201).json({
       success: true,
@@ -217,6 +238,21 @@ export async function updateShop(
   req: ShopRequest<ShopParams, ShopBody>,
   res: Response
 ): Promise<Response> {
+  const image = req.body?.image
+  if (
+    (image !== undefined && image !== null && !isCloudinaryImageUrl(image)) ||
+    (req.file && image !== undefined)
+  ) {
+    if (req.file) {
+      removeUploadedImage('shops', req.file.filename)
+    }
+
+    return res.status(422).json({
+      success: false,
+      message: 'URL gambar Cloudinary tidak valid atau sumber gambar ganda.',
+    })
+  }
+
   try {
     const shop = await Shop.findByPk(req.params.id)
 
@@ -320,6 +356,8 @@ export async function updateShop(
 
     if (req.file) {
       updateData.image = `/uploads/shops/${req.file.filename}`
+    } else if (image !== undefined) {
+      updateData.image = image
     }
 
     await shop.update(updateData)

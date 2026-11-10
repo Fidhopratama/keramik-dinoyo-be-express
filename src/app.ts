@@ -1,13 +1,14 @@
 
 import express from 'express'
-import cors from 'cors'
 import dotenv from 'dotenv'
 import path from 'path'
 import { imageUploadErrorHandler } from './middleware/imageUpload'
+import frontendCors from './middleware/frontendCors'
 
 dotenv.config()
 
 const authRoutes = require('./routes/authRoutes')
+const cloudinaryUploadRoutes = require('./routes/cloudinaryUploadRoutes')
 const shopRoutes = require('./routes/shopRoutes')
 const productRoutes = require('./routes/productRoutes')
 const workshopRoutes = require('./routes/workshopRoutes')
@@ -20,12 +21,7 @@ const categoryRoutes = require('./routes/categoryRoutes')
 
 const app = express()
 
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-  }),
-)
+app.use(frontendCors)
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -45,6 +41,7 @@ app.get('/api/health', (_req, res) => {
 })
 
 app.use('/api', authRoutes)
+app.use('/api', cloudinaryUploadRoutes)
 app.use('/api', shopRoutes)
 app.use('/api', productRoutes)
 app.use('/api', workshopRoutes)

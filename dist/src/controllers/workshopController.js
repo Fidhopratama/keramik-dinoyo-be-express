@@ -8,6 +8,9 @@ exports.deleteWorkshop = deleteWorkshop;
 const fs = require('fs');
 const path = require('path');
 const { Workshop } = require('../models');
+const imageUpload_1 = require("../middleware/imageUpload");
+const validation_1 = require("../utils/validation");
+const cloudinaryImage_1 = require("../utils/cloudinaryImage");
 function deleteUploadedFile(imagePath) {
     if (!imagePath)
         return;
@@ -77,6 +80,17 @@ async function getWorkshopById(req, res) {
     }
 }
 async function createWorkshop(req, res) {
+    const image = req.body?.image;
+    if ((image !== undefined && image !== null && !(0, cloudinaryImage_1.isCloudinaryImageUrl)(image)) ||
+        (req.file && image !== undefined)) {
+        if (req.file) {
+            (0, imageUpload_1.removeUploadedImage)('workshops', req.file.filename);
+        }
+        return res.status(422).json({
+            success: false,
+            message: 'URL gambar Cloudinary tidak valid atau sumber gambar ganda.',
+        });
+    }
     try {
         const { title, description, instructor, date, start_time, end_time, capacity, location, status, } = req.body;
         if (!title || !date || !start_time || !end_time) {
@@ -86,6 +100,18 @@ async function createWorkshop(req, res) {
             return res.status(422).json({
                 success: false,
                 message: 'Judul, tanggal, waktu mulai, dan waktu selesai wajib diisi.',
+            });
+        }
+        if (location !== undefined &&
+            location !== null &&
+            location !== '' &&
+            !(0, validation_1.isDetailedAddress)(location)) {
+            if (req.file) {
+                (0, imageUpload_1.removeUploadedImage)('workshops', req.file.filename);
+            }
+            return res.status(422).json({
+                success: false,
+                message: 'Lokasi workshop harus lebih detail (minimal 15 karakter dan 3 kata, sertakan nama jalan serta detail lokasi).',
             });
         }
         const parsedCapacity = capacity === undefined || capacity === ''
@@ -101,8 +127,7 @@ async function createWorkshop(req, res) {
                 message: 'Kapasitas workshop harus berupa angka yang valid.',
             });
         }
-        const image = getImagePath(req);
-        const workshop = await Workshop.create({
+        const workshopData = {
             title,
             description: description || null,
             instructor: instructor || null,
@@ -110,10 +135,13 @@ async function createWorkshop(req, res) {
             start_time,
             end_time,
             capacity: parsedCapacity,
-            location: location || null,
-            image,
+            location: typeof location === 'string' && location.trim()
+                ? location.trim()
+                : null,
+            image: req.file ? getImagePath(req) : image ?? null,
             status: status || 'upcoming',
-        });
+        };
+        const workshop = await Workshop.create(workshopData);
         return res.status(201).json({
             success: true,
             message: 'Workshop berhasil dibuat.',
@@ -135,6 +163,17 @@ async function createWorkshop(req, res) {
     }
 }
 async function updateWorkshop(req, res) {
+    const image = req.body?.image;
+    if ((image !== undefined && image !== null && !(0, cloudinaryImage_1.isCloudinaryImageUrl)(image)) ||
+        (req.file && image !== undefined)) {
+        if (req.file) {
+            (0, imageUpload_1.removeUploadedImage)('workshops', req.file.filename);
+        }
+        return res.status(422).json({
+            success: false,
+            message: 'URL gambar Cloudinary tidak valid atau sumber gambar ganda.',
+        });
+    }
     try {
         const workshop = await Workshop.findByPk(req.params.id);
         if (!workshop) {
@@ -181,17 +220,31 @@ async function updateWorkshop(req, res) {
             updateData.capacity = parsedCapacity;
         }
         if (location !== undefined) {
-            updateData.location = location || null;
+            if (location === null || location === '') {
+                updateData.location = null;
+            }
+            else if ((0, validation_1.isDetailedAddress)(location)) {
+                updateData.location = location.trim();
+            }
+            else {
+                if (req.file) {
+                    (0, imageUpload_1.removeUploadedImage)('workshops', req.file.filename);
+                }
+                return res.status(422).json({
+                    success: false,
+                    message: 'Lokasi workshop harus lebih detail (minimal 15 karakter dan 3 kata, sertakan nama jalan serta detail lokasi).',
+                });
+            }
         }
         if (status !== undefined) {
             updateData.status = status;
         }
         if (req.file) {
             const newImage = `/uploads/workshops/${req.file.filename}`;
-            if (workshop.image) {
-                deleteUploadedFile(workshop.image);
-            }
             updateData.image = newImage;
+        }
+        else if (image !== undefined) {
+            updateData.image = image;
         }
         await workshop.update(updateData);
         return res.json({

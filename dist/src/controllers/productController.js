@@ -2,6 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getProducts = void 0;
 const sequelize_1 = require("sequelize");
+const imageUpload_1 = require("../middleware/imageUpload");
+const validation_1 = require("../utils/validation");
+const cloudinaryImage_1 = require("../utils/cloudinaryImage");
 const { Product, Shop, Category } = require('../models');
 function makeSlug(value) {
     return value
@@ -114,6 +117,17 @@ const getProductById = async (req, res) => {
 exports.getProductById = getProductById;
 // POST /api/products
 const createProduct = async (req, res) => {
+    const image = req.body?.image;
+    if ((image !== undefined && image !== null && !(0, cloudinaryImage_1.isCloudinaryImageUrl)(image)) ||
+        (req.file && image !== undefined)) {
+        if (req.file) {
+            (0, imageUpload_1.removeUploadedImage)('products', req.file.filename);
+        }
+        return res.status(422).json({
+            success: false,
+            message: 'URL gambar Cloudinary tidak valid atau sumber gambar ganda.',
+        });
+    }
     try {
         const { shop_id, category_id, name, slug, description, price, stock, status, } = req.body;
         if (!shop_id ||
@@ -125,6 +139,16 @@ const createProduct = async (req, res) => {
             return res.status(422).json({
                 success: false,
                 message: 'shop_id, name, dan price wajib diisi.',
+            });
+        }
+        const parsedPrice = (0, validation_1.parseProductPrice)(price);
+        if (parsedPrice === null) {
+            if (req.file) {
+                (0, imageUpload_1.removeUploadedImage)('products', req.file.filename);
+            }
+            return res.status(422).json({
+                success: false,
+                message: 'Format harga tidak valid. Gunakan angka, misalnya 15000 atau Rp 15.000.',
             });
         }
         const shop = await Shop.findByPk(shop_id);
@@ -153,18 +177,18 @@ const createProduct = async (req, res) => {
                 message: 'Slug produk sudah digunakan.',
             });
         }
-        const image = getProductImagePath(req.file);
-        const product = await Product.create({
+        const productData = {
             shop_id,
             category_id: category_id || null,
             name,
             slug: finalSlug,
             description: description || null,
-            price,
+            price: parsedPrice,
             stock: stock !== undefined && stock !== '' ? stock : 0,
-            image,
+            image: req.file ? getProductImagePath(req.file) : image ?? null,
             status: status || 'active',
-        });
+        };
+        const product = await Product.create(productData);
         const result = await Product.findByPk(product.id, {
             include: [
                 {
@@ -197,6 +221,17 @@ const createProduct = async (req, res) => {
 exports.createProduct = createProduct;
 // PUT /api/products/:id
 const updateProduct = async (req, res) => {
+    const image = req.body?.image;
+    if ((image !== undefined && image !== null && !(0, cloudinaryImage_1.isCloudinaryImageUrl)(image)) ||
+        (req.file && image !== undefined)) {
+        if (req.file) {
+            (0, imageUpload_1.removeUploadedImage)('products', req.file.filename);
+        }
+        return res.status(422).json({
+            success: false,
+            message: 'URL gambar Cloudinary tidak valid atau sumber gambar ganda.',
+        });
+    }
     try {
         const product = await Product.findByPk(req.params.id);
         if (!product) {
@@ -215,6 +250,16 @@ const updateProduct = async (req, res) => {
             return res.status(422).json({
                 success: false,
                 message: 'shop_id, name, dan price wajib diisi.',
+            });
+        }
+        const parsedPrice = (0, validation_1.parseProductPrice)(price);
+        if (parsedPrice === null) {
+            if (req.file) {
+                (0, imageUpload_1.removeUploadedImage)('products', req.file.filename);
+            }
+            return res.status(422).json({
+                success: false,
+                message: 'Format harga tidak valid. Gunakan angka, misalnya 15000 atau Rp 15.000.',
             });
         }
         const shop = await Shop.findByPk(shop_id);
@@ -249,12 +294,15 @@ const updateProduct = async (req, res) => {
             name,
             slug: finalSlug,
             description: description || null,
-            price,
+            price: parsedPrice,
             stock: stock !== undefined && stock !== '' ? stock : 0,
             status: status || 'active',
         };
         if (req.file) {
             updateData.image = getProductImagePath(req.file);
+        }
+        else if (image !== undefined) {
+            updateData.image = image;
         }
         await product.update(updateData);
         const result = await Product.findByPk(product.id, {
