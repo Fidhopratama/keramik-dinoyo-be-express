@@ -21,7 +21,12 @@ Configure these names in the hosting provider's environment settings; keep secre
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: Cloudinary credentials. Keep all three in backend environment settings; never expose the API secret to frontend code or logs.
 - `FRONTEND_ORIGIN`: exact frontend origins allowed by CORS; separate multiple origins with commas. Include scheme and host, but no path. Development defaults to `http://localhost:3000` and `http://127.0.0.1:3000` when unset; production must set this explicitly.
 - `PORT`: public Node server port assigned by hosting; defaults to `5050`.
-- `AI_SERVICE_URL`: optional URL of the AI service. If unset, the code uses a local development address.
+- `AI_SERVICE_URL`: root URL of the internal AI service (without `/api`); defaults to `http://127.0.0.1:3000` for local development.
+- `AI_SERVICE_TOKEN`: shared internal Bearer token. Set the same secret on the Express API and AI service; do not expose it to Flutter.
+
+The AI service also needs `GEMINI_API_KEY` in its own environment. Dinoyo AI sends the user's message and up to eight recent chat turns to that service. It does not receive database records, so it must say when current product, shop, route, or workshop information cannot be confirmed.
+
+The chat endpoint requires a valid user Bearer token and allows up to 20 messages per user per minute per Express process. Conversation history is held by the mobile chat session and is not stored in the database.
 
 ## Cloudinary uploads
 
