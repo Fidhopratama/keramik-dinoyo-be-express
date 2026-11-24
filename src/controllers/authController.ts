@@ -58,6 +58,7 @@ function userPayload(user: any) {
   }
 }
 
+// REGISTER
 export async function register(
   req: Request<{}, {}, RegisterBody>,
   res: Response,
@@ -108,15 +109,13 @@ export async function register(
       })
     }
 
-    // Gunakan role yang memang tersedia di tabel Roles.
+    // Pendaftaran publik selalu menggunakan role customer.
     const userRole = await Role.findOne({
       where: { name: 'customer' },
     })
 
     if (!userRole) {
-      console.error(
-        'Role customer tidak ditemukan di tabel Roles.',
-      )
+      console.error('Role customer tidak ditemukan di tabel Roles.')
 
       return res.status(500).json({
         success: false,
@@ -128,6 +127,7 @@ export async function register(
 
     if (!jwtSecret) {
       console.error('JWT_SECRET belum dikonfigurasi.')
+
       return res.status(500).json({
         success: false,
         message: 'Konfigurasi autentikasi server belum lengkap.',
@@ -202,6 +202,7 @@ export async function register(
   }
 }
 
+// LOGIN ADMIN
 export async function login(
   req: Request<{}, {}, LoginBody>,
   res: Response,
@@ -254,6 +255,14 @@ export async function login(
       })
     }
 
+    // Hanya admin yang boleh login ke dashboard admin.
+    if (user.role?.name !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak. Halaman ini khusus admin.',
+      })
+    }
+
     const token = createToken(user)
 
     if (!token) {
@@ -283,6 +292,7 @@ export async function login(
   }
 }
 
+// CEK SESSION ADMIN
 export async function me(
   req: AuthenticatedRequest,
   res: Response,
@@ -319,6 +329,14 @@ export async function me(
       })
     }
 
+    // Periksa role terbaru langsung dari database.
+    if (user.role?.name !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak. Halaman ini khusus admin.',
+      })
+    }
+
     return res.json({
       success: true,
       data: {
@@ -335,6 +353,7 @@ export async function me(
   }
 }
 
+// LOGOUT
 export async function logout(
   _req: Request,
   res: Response,
