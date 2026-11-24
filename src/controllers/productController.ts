@@ -28,7 +28,13 @@ interface ProductQuery {
   shop_id?: string
   category_id?: string
   status?: string
+  page?: string
+  limit?: string
 }
+
+const DEFAULT_PAGE = 1
+const DEFAULT_LIMIT = 20
+const MAX_LIMIT = 100
 
 interface ProductParams {
   id: string
@@ -91,7 +97,33 @@ export const getProducts = async (
   res: Response
 ): Promise<Response> => {
   try {
-    const { search, shop_id, category_id, status } = req.query
+    const { search, shop_id, category_id, status, page, limit } = req.query
+    const requestedPage = page === undefined ? DEFAULT_PAGE : Number(page)
+    const requestedLimit = limit === undefined ? DEFAULT_LIMIT : Number(limit)
+
+    if (
+      !Number.isSafeInteger(requestedPage) ||
+      requestedPage < 1 ||
+      !Number.isSafeInteger(requestedLimit) ||
+      requestedLimit < 1
+    ) {
+      return res.status(422).json({
+        success: false,
+        message: 'Parameter page dan limit harus berupa bilangan bulat positif.',
+      })
+    }
+
+    const currentPage = requestedPage
+    const pageSize = Math.min(requestedLimit, MAX_LIMIT)
+    const offset = (currentPage - 1) * pageSize
+
+    if (!Number.isSafeInteger(offset)) {
+      return res.status(422).json({
+        success: false,
+        message: 'Parameter page berada di luar jangkauan.',
+      })
+    }
+
     const where: WhereOptions = {}
 
     if (search) {
@@ -107,7 +139,7 @@ export const getProducts = async (
     if (category_id) Object.assign(where, { category_id })
     if (status) Object.assign(where, { status })
 
-    const products = await Product.findAll({
+    const { count, rows: products } = await Product.findAndCountAll({
       where,
       include: [
         {
@@ -122,11 +154,19 @@ export const getProducts = async (
         },
       ],
       order: [['id', 'DESC']],
+      limit: pageSize,
+      offset,
     })
 
     return res.json({
       success: true,
       data: products,
+      pagination: {
+        total: count,
+        page: currentPage,
+        limit: pageSize,
+        totalPages: Math.ceil(count / pageSize),
+      },
     })
   } catch (error: unknown) {
     console.error('getProducts error:', error)

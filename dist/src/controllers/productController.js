@@ -6,6 +6,9 @@ const imageUpload_1 = require("../middleware/imageUpload");
 const validation_1 = require("../utils/validation");
 const cloudinaryImage_1 = require("../utils/cloudinaryImage");
 const { Product, Shop, Category } = require('../models');
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
 function makeSlug(value) {
     return value
         .trim()
@@ -30,7 +33,27 @@ function getErrorMessage(error) {
 // GET /api/products
 const getProducts = async (req, res) => {
     try {
-        const { search, shop_id, category_id, status } = req.query;
+        const { search, shop_id, category_id, status, page, limit } = req.query;
+        const requestedPage = page === undefined ? DEFAULT_PAGE : Number(page);
+        const requestedLimit = limit === undefined ? DEFAULT_LIMIT : Number(limit);
+        if (!Number.isSafeInteger(requestedPage) ||
+            requestedPage < 1 ||
+            !Number.isSafeInteger(requestedLimit) ||
+            requestedLimit < 1) {
+            return res.status(422).json({
+                success: false,
+                message: 'Parameter page dan limit harus berupa bilangan bulat positif.',
+            });
+        }
+        const currentPage = requestedPage;
+        const pageSize = Math.min(requestedLimit, MAX_LIMIT);
+        const offset = (currentPage - 1) * pageSize;
+        if (!Number.isSafeInteger(offset)) {
+            return res.status(422).json({
+                success: false,
+                message: 'Parameter page berada di luar jangkauan.',
+            });
+        }
         const where = {};
         if (search) {
             Object.assign(where, {
@@ -46,7 +69,7 @@ const getProducts = async (req, res) => {
             Object.assign(where, { category_id });
         if (status)
             Object.assign(where, { status });
-        const products = await Product.findAll({
+        const { count, rows: products } = await Product.findAndCountAll({
             where,
             include: [
                 {
@@ -61,10 +84,18 @@ const getProducts = async (req, res) => {
                 },
             ],
             order: [['id', 'DESC']],
+            limit: pageSize,
+            offset,
         });
         return res.json({
             success: true,
             data: products,
+            pagination: {
+                total: count,
+                page: currentPage,
+                limit: pageSize,
+                totalPages: Math.ceil(count / pageSize),
+            },
         });
     }
     catch (error) {
