@@ -30,14 +30,21 @@ function parseFrontendOrigins(value) {
     }
     return [...origins];
 }
+function isVercelPreviewOrigin(origin) {
+    return /^https:\/\/keramik-dinoyo-fe-next-[a-z0-9]+-fidhopratamas-projects\.vercel\.app$/.test(origin);
+}
 function createFrontendCorsMiddleware(frontendOrigin = process.env.FRONTEND_ORIGIN ??
     (process.env.NODE_ENV === 'production'
         ? undefined
         : 'http://localhost:3000,http://127.0.0.1:3000')) {
     const allowedOrigins = parseFrontendOrigins(frontendOrigin);
+    const isAllowedOrigin = (origin) => {
+        return (allowedOrigins.includes(origin) ||
+            isVercelPreviewOrigin(origin));
+    };
     const corsMiddleware = (0, cors_1.default)({
         origin: (origin, callback) => {
-            callback(null, Boolean(origin && allowedOrigins.includes(origin)));
+            callback(null, Boolean(origin && isAllowedOrigin(origin)));
         },
         credentials: true,
     });
@@ -45,7 +52,7 @@ function createFrontendCorsMiddleware(frontendOrigin = process.env.FRONTEND_ORIG
         const origin = req.get('Origin');
         if (!origin)
             return next();
-        if (!allowedOrigins.includes(origin)) {
+        if (!isAllowedOrigin(origin)) {
             return res.status(403).json({
                 success: false,
                 message: 'Origin tidak diizinkan.',

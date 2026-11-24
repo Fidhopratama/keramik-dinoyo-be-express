@@ -1,3 +1,4 @@
+
 import cors from 'cors'
 import type { NextFunction, Request, Response } from 'express'
 
@@ -5,12 +6,14 @@ function parseFrontendOrigins(value: string | undefined): string[] {
   if (!value) return []
 
   const origins = new Set<string>()
+
   for (const entry of value.split(',')) {
     const candidate = entry.trim()
     if (!candidate) continue
 
     try {
       const url = new URL(candidate)
+
       if (
         (url.protocol === 'https:' || url.protocol === 'http:') &&
         url.username === '' &&
@@ -29,6 +32,12 @@ function parseFrontendOrigins(value: string | undefined): string[] {
   return [...origins]
 }
 
+function isVercelPreviewOrigin(origin: string): boolean {
+  return /^https:\/\/keramik-dinoyo-fe-next-[a-z0-9]+-fidhopratamas-projects\.vercel\.app$/.test(
+    origin,
+  )
+}
+
 export function createFrontendCorsMiddleware(
   frontendOrigin =
     process.env.FRONTEND_ORIGIN ??
@@ -37,9 +46,17 @@ export function createFrontendCorsMiddleware(
       : 'http://localhost:3000,http://127.0.0.1:3000'),
 ) {
   const allowedOrigins = parseFrontendOrigins(frontendOrigin)
+
+  const isAllowedOrigin = (origin: string): boolean => {
+    return (
+      allowedOrigins.includes(origin) ||
+      isVercelPreviewOrigin(origin)
+    )
+  }
+
   const corsMiddleware = cors({
     origin: (origin, callback) => {
-      callback(null, Boolean(origin && allowedOrigins.includes(origin)))
+      callback(null, Boolean(origin && isAllowedOrigin(origin)))
     },
     credentials: true,
   })
@@ -50,9 +67,10 @@ export function createFrontendCorsMiddleware(
     next: NextFunction,
   ): void | Response => {
     const origin = req.get('Origin')
+
     if (!origin) return next()
 
-    if (!allowedOrigins.includes(origin)) {
+    if (!isAllowedOrigin(origin)) {
       return res.status(403).json({
         success: false,
         message: 'Origin tidak diizinkan.',
